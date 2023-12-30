@@ -20,7 +20,7 @@ namespace co_syscall {
         size_t total = 0;
         while (total < n) {
             int bytes_read = co_await read(sche, fd, (char *)buf + total, n - total);
-            std::cout << std::format("read_exact_n bytes_read = {}\n", bytes_read);
+            //std::cout << std::format("read_exact_n bytes_read = {}\n", bytes_read);
             if (bytes_read > 0) {
                 total += bytes_read;
             } else if (bytes_read == 0) {
@@ -37,9 +37,9 @@ namespace co_syscall {
 
     task read_package(scheduler &sche, int fd, void *payload) {
         int32_t size;
-        std::cout << std::format("read package before bytes_read(&size)\n");
+        //std::cout << std::format("read package before bytes_read(&size)\n");
         int bytes_read = co_await read_exact_n(sche, fd, &size, sizeof(int32_t));
-        std::cout << std::format("read package bytes_read={} bytes_read(&size) = {}\n", bytes_read, size);
+        //std::cout << std::format("read package bytes_read={} bytes_read(&size) = {}\n", bytes_read, size);
         if (bytes_read <= 0) {
             co_return bytes_read;
         }
@@ -47,7 +47,7 @@ namespace co_syscall {
             co_return -1;
         }
         bytes_read = co_await read_exact_n(sche, fd, payload, size);
-        std::cout << std::format("read package bytes_read(&payload) = {}\n", bytes_read);
+        //std::cout << std::format("read package bytes_read(&payload) = {}\n", bytes_read);
         if (bytes_read <= 0) {
             co_return bytes_read;
         }
@@ -63,7 +63,7 @@ namespace co_rpc {
         int32_t package[] = {CALL_ID::ADD_NUMBER, a, b};
         constexpr int32_t PACKAGE_SIZE = sizeof(package);
         if(::write(fd, &PACKAGE_SIZE, sizeof(PACKAGE_SIZE)) == -1) {
-            err = 1;
+            err = -1;
             co_return 0;
         }
         if(::write(fd, &package, PACKAGE_SIZE) == -1) {
