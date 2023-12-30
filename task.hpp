@@ -4,7 +4,8 @@
 #include <iostream>
 #include <utility>
 
-template<class T>
+using task_result_t = int;
+
 struct task
 {
     struct promise_type
@@ -37,21 +38,33 @@ struct task
         };
         final_awaiter final_suspend() noexcept { return {}; }
         void unhandled_exception() { throw; }
-        void return_value(T value) { result = std::move(value); }
+        void return_value(task_result_t value) { result = std::move(value); }
  
-        T result;
+        task_result_t result;
         std::coroutine_handle<> previous;
         std::coroutine_handle<> next;
     };
+    using handler_t = std::coroutine_handle<promise_type>;
  
     task(std::coroutine_handle<promise_type> h) : coro(h) {}
-    task(task&& t) = delete;
-    ~task() { coro.destroy(); }
+    task(const task& t) = delete;
+    task &operator=(const task& t) = delete;
+    task(task&& t): coro{std::move(t.coro)} {
+        t.coro = nullptr;
+    }
+    task &operator=(task &&t) {
+        if (&t != this) {
+            std::swap(coro, t.coro);
+        }
+        return *this;
+    }
+    ~task() { 
+    }
  
     struct awaiter
     {
         bool await_ready() { return false; }
-        T await_resume() { return std::move(self.promise().result); }
+        task_result_t await_resume() { return std::move(self.promise().result); }
         auto await_suspend(auto h)
         {
             self.promise().previous = h;
@@ -67,8 +80,20 @@ struct task
         coro.resume();
     }
 
-    T getResult() {
+    bool done() {
+        return coro.done();
+    }
+
+    task_result_t get_result() {
         return coro.promise().result;
+    }
+
+    std::coroutine_handle<promise_type> get_handle() {
+        return coro;
+    }
+
+    void destroy() {
+        coro.destroy();
     }
 
  
