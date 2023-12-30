@@ -63,7 +63,6 @@ public:
     {
         while(1) {
             // If a new connection is available, accept it
-            std::cout << "before accept" << std::endl;
             int newSocket = co_await co_syscall::accept(sche, serverSocket, (struct sockaddr *)&clientAddr, &addrLen);
             if (newSocket == -1)
             {

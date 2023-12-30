@@ -12,11 +12,10 @@
 
 class scheduler {
 public:
-    scheduler() {
-    }
-
-    void init_async_io() {
-        schedule(co_check_io());
+    scheduler(bool enable_async_io = true) {
+        if (enable_async_io) {
+            schedule(co_check_io());
+        }
     }
 
     void schedule(task &&coro_task, await_state state = await_state::schedule_next_frame) {
@@ -42,11 +41,13 @@ public:
             if (!ready_queue.empty()) {
                 auto coro = ready_queue.front();
                 ready_queue.pop_front();
+                //std::cout << "in scheduler before resume " << coro.promise().id << std::endl;
                 auto inner_coro = task::get_innermost_coro(coro);
+                //std::cout << "inner = " << inner_coro.promise().id << std::endl;
                 inner_coro.resume();
+                //std::cout << "in scheduler after resume "  << coro.promise().id << std::endl;
                 if (!coro.done()) {
-                    auto inner_coro = task::get_innermost_coro(coro);
-                    emplace_coro(coro, inner_coro.promise().last_await_state);
+                    emplace_coro(coro, coro.promise().last_await_state);
                 } else {
                     coro.destroy();
                 }
@@ -59,6 +60,7 @@ public:
         bool await_ready() { return false; }
         void await_suspend(task::handler_t h)
         {
+            h = task::get_root_coro(h);
             wait_queue.emplace(fd, h);
             coro = h;
             original_state = h.promise().last_await_state;
@@ -85,6 +87,7 @@ private:
             int maxSocket = 0;
 
             for(auto [fd, handle]: read_wait_queue) {
+                //std::cout << std::format("check {} ", fd) << std::endl;
                 FD_SET(fd, &readfds);
                 maxSocket = std::max(maxSocket, fd);
             }
@@ -92,6 +95,7 @@ private:
             if (maxSocket > 0) {
                 timeval timeout{};
                 timeout.tv_sec = 1;
+                //std::cout << std::format("before select") << std::endl;
                 // Wait for activity on any of the sockets
                 int activity = select(maxSocket + 1, &readfds, NULL, NULL, NULL);
 
@@ -103,6 +107,7 @@ private:
 
                 for(int fd = 0; fd <= maxSocket; fd++) {
                     if (FD_ISSET(fd, &readfds)) {
+                        //std::cout << std::format("ready: {} ", fd) << std::endl;
                         auto handle = read_wait_queue[fd];
                         read_wait_queue.erase(fd);
                         ready_queue.emplace_back(handle);

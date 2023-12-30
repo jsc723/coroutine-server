@@ -16,6 +16,10 @@ struct task
     
     struct promise_type
     {
+        static int get_next_id() {
+            static int next_id{};
+            return next_id++;
+        }
         auto get_return_object()
         {
             return task(std::coroutine_handle<promise_type>::from_promise(*this));
@@ -55,6 +59,7 @@ struct task
         std::coroutine_handle<promise_type> previous;
         std::coroutine_handle<promise_type> next;
         await_state last_await_state = await_state::schedule_next_frame;
+        int id = get_next_id();
     };
     using handler_t = std::coroutine_handle<promise_type>;
  
@@ -119,6 +124,16 @@ struct task
             advanced++;
         }
         //std::cout << std::format("advanced {} times\n", advanced);
+        return coro;
+    }
+
+    static handler_t get_root_coro(handler_t coro) {
+        int advanced = 0;
+        while(coro.promise().previous) {
+            coro = coro.promise().previous;
+            advanced++;
+        }
+        //std::cout << std::format("go back {} times\n", advanced);
         return coro;
     }
 
