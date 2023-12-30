@@ -89,11 +89,12 @@ public:
 
     task co_handle_client(scheduler &sche, int clientSockets_i)
     {
+        char package[MAX_PACKAGE_SIZE+1];
         while(1) {
             int sd = clientSockets[clientSockets_i];
             // Read the incoming message
-            int bytesRead = co_await co_syscall::read(sche, sd, buffer, BUFFER_SIZE);
-            if (bytesRead == 0)
+            int32_t package_size = co_await co_syscall::read_package(sche, sd, buffer);
+            if (package_size <= 0)
             {
                 // Client disconnected
                 printf("Host disconnected, socket fd is %d\n", sd);
@@ -104,9 +105,13 @@ public:
             else
             {
                 // Echo the message back to the client
-                buffer[bytesRead] = '\0';
-                printf("Received: %s", buffer);
-                write(sd, buffer, strlen(buffer));
+                buffer[package_size] = '\0';
+                printf("Received: size=%d content=%s", package_size, buffer);
+                for(int i = 0; i < package_size; i++) {
+                    buffer[i] = std::toupper(buffer[i]);
+                }
+                write(sd, &package_size, sizeof(package_size));
+                write(sd, buffer, package_size);
             }
         }
     }

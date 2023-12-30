@@ -2,6 +2,7 @@
 #include <arpa/inet.h>
 #include "scheduler.hpp"
 
+#define MAX_PACKAGE_SIZE (1 << 10) // 1 KB
 
 namespace co_syscall {
     task accept(scheduler &sche, int __fd, sockaddr *__restrict__ __addr, socklen_t *__restrict__ __addr_len) {
@@ -14,16 +15,18 @@ namespace co_syscall {
         co_return ::read(__fd, __buf, __nbytes);
     }
 
+    //return eithor n or 0 (eof) or -1 (error)
     task read_exact_n(scheduler &sche, int fd, void *buf, size_t n) {
         size_t total = 0;
         while (total < n) {
             int bytes_read = co_await read(sche, fd, (char *)buf + total, n - total);
-
+            std::cout << std::format("read_exact_n bytes_read = {}\n", bytes_read);
             if (bytes_read > 0) {
                 total += bytes_read;
             } else if (bytes_read == 0) {
                 // End of file reached before reading all bytes
-                break;
+                // treat as nothing was read
+                co_return 0;
             } else {
                 perror("Read error");
                 co_return -1;
@@ -31,4 +34,26 @@ namespace co_syscall {
         }
         co_return total;
     }
+
+    task read_package(scheduler &sche, int fd, void *payload) {
+        int32_t size;
+        std::cout << std::format("read package before bytes_read(&size)\n");
+        int bytes_read = co_await read_exact_n(sche, fd, &size, sizeof(int32_t));
+        std::cout << std::format("read package bytes_read={} bytes_read(&size) = {}\n", bytes_read, size);
+        if (bytes_read <= 0) {
+            co_return bytes_read;
+        }
+        if (size > MAX_PACKAGE_SIZE) {
+            co_return -1;
+        }
+        bytes_read = co_await read_exact_n(sche, fd, payload, size);
+        std::cout << std::format("read package bytes_read(&payload) = {}\n", bytes_read);
+        if (bytes_read <= 0) {
+            co_return bytes_read;
+        }
+        co_return size;
+    }
 };
+
+namespace co_rpc {
+}
