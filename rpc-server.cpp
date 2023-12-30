@@ -100,21 +100,29 @@ public:
                 printf("Host disconnected, socket fd is %d\n", sd);
                 close(sd);
                 clientSockets[clientSockets_i] = 0;
-                break;
+                co_return 0;
             }
             else
             {
-                // Echo the message back to the client
-                buffer[package_size] = '\0';
-                printf("Received: size=%d content=%s", package_size, buffer);
-                for(int i = 0; i < package_size; i++) {
-                    buffer[i] = std::toupper(buffer[i]);
+                int32_t call_id = *(int *)buffer;
+                switch(call_id) {
+                    case co_rpc::CALL_ID::ADD_NUMBER:
+                        int32_t res = rpc_add_number_impl(buffer);
+                        int32_t res_size = sizeof(res);
+                        write(sd, &res_size, sizeof(res_size));
+                        write(sd, &res, res_size);
+                        break;
                 }
-                write(sd, &package_size, sizeof(package_size));
-                write(sd, buffer, package_size);
             }
         }
     }
+
+    int32_t rpc_add_number_impl(void *buffer) {
+        int *ib = (int*)buffer;
+        return ib[1] + ib[2];
+    }
+
+    
 
     ~server()
     {

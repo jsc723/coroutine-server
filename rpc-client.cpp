@@ -57,34 +57,18 @@ public:
             if (len > 0 && userInput[len] == '\n') {
                 userInput[len] = '\0';
             }
+            int32_t a, b;
+            sscanf(userInput, "%d %d", &a, &b);
+            int err{};
+            int32_t res = co_await co_rpc::add_number(sche, clientSocket, a, b, err);
 
-            std::cout << std::format("package size = {}\n", len);
-
-            if(write(clientSocket, &len, sizeof(len)) == -1) {
+            if(err) {
                 perror("Send failed");
                 close(clientSocket);
                 exit(EXIT_FAILURE);
             }
-            // Send user input to server
-            if (send(clientSocket, userInput, strlen(userInput), 0) == -1) {
-                perror("Send failed");
-                close(clientSocket);
-                exit(EXIT_FAILURE);
-            }
-
-            // Receive and display response from server
-            int32_t package_size = co_await co_syscall::read_package(sche, clientSocket, package);
-            if (package_size == -1) {
-                perror("Receive failed");
-                close(clientSocket);
-                exit(EXIT_FAILURE);
-            } else if (package_size == 0) {
-                printf("Server closed the connection\n");
-                break;
-            } else {
-                package[package_size] = '\0';
-                printf("Received from server: %s\n", package);
-            }
+            
+            printf("Received from server: %d\n", res);
         }
 
     }
