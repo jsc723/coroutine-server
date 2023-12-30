@@ -6,8 +6,14 @@
 
 using task_result_t = int;
 
+enum class await_state {
+    schedule_next_frame,
+    schedule_now,
+    no_schedule
+};
 struct task
 {
+    
     struct promise_type
     {
         auto get_return_object()
@@ -31,18 +37,24 @@ struct task
                 // Otherwise, return noop_coroutine(), whose resumption does nothing.
  
                 if (auto previous = h.promise().previous; previous){
+                    previous.promise().next = nullptr;
+                    //std::cout << "final suspend return previous\n";
                     return previous;
-                } 
+                }
+                //std::cout << "final suspend return noop\n";
                 return std::noop_coroutine();
             }
         };
         final_awaiter final_suspend() noexcept { return {}; }
         void unhandled_exception() { throw; }
         void return_value(task_result_t value) { result = std::move(value); }
- 
+
+        await_state get_last_await_state() { return last_await_state; }
+
         task_result_t result;
-        std::coroutine_handle<> previous;
-        std::coroutine_handle<> next;
+        std::coroutine_handle<promise_type> previous;
+        std::coroutine_handle<promise_type> next;
+        await_state last_await_state = await_state::schedule_next_frame;
     };
     using handler_t = std::coroutine_handle<promise_type>;
  
@@ -64,12 +76,16 @@ struct task
     struct awaiter
     {
         bool await_ready() { return false; }
-        task_result_t await_resume() { return std::move(self.promise().result); }
+        task_result_t await_resume() { 
+            task_result_t res = std::move(self.promise().result);
+            //std::cout << "destroy coro and get result " << res  << std::endl;
+            self.destroy();
+            return res;
+        }
         auto await_suspend(auto h)
         {
             self.promise().previous = h;
             h.promise().next = self;
-
             return self;
         }
         std::coroutine_handle<promise_type> self;
@@ -94,6 +110,16 @@ struct task
 
     void destroy() {
         coro.destroy();
+    }
+
+    static handler_t get_innermost_coro(handler_t coro) {
+        int advanced = 0;
+        while(coro.promise().next) {
+            coro = coro.promise().next;
+            advanced++;
+        }
+        //std::cout << std::format("advanced {} times\n", advanced);
+        return coro;
     }
 
  

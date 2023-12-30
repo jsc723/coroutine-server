@@ -4,29 +4,117 @@
 #include <iostream>
 #include <utility>
 #include <queue>
+#include <unordered_map>
+#include <format>
 #include "task.hpp"
+#include "unistd.h"
+
 
 class scheduler {
 public:
-    void schedule(task &&coro_task) {
-        ready_queue.emplace(std::move(coro_task));
+    scheduler() {
+    }
+
+    void init_async_io() {
+        schedule(co_check_io());
+    }
+
+    void schedule(task &&coro_task, await_state state = await_state::schedule_next_frame) {
+        emplace_coro(coro_task.get_handle(), state);
+    }
+
+    void emplace_coro(task::handler_t coro, await_state state) {
+        switch(state) {
+            case await_state::schedule_next_frame:
+                ready_queue.emplace_back(coro);
+                break;
+            case await_state::schedule_now:
+                ready_queue.emplace_front(coro);
+                break;
+            case await_state::no_schedule:
+            default:
+                break;
+        }
     }
     
     void run() {
         while(!ready_queue.empty()) {
             if (!ready_queue.empty()) {
-                task &&t = std::move(ready_queue.front());
-                ready_queue.pop();
-                t();
-                if (!t.done()) {
-                    ready_queue.emplace(std::move(t));
+                auto coro = ready_queue.front();
+                ready_queue.pop_front();
+                auto inner_coro = task::get_innermost_coro(coro);
+                inner_coro.resume();
+                if (!coro.done()) {
+                    auto inner_coro = task::get_innermost_coro(coro);
+                    emplace_coro(coro, inner_coro.promise().last_await_state);
                 } else {
-                    t.destroy();
+                    coro.destroy();
                 }
             }
         }
     }
-private:
-    std::queue<task> ready_queue;
 
+    
+    struct fd_awaiter {
+        bool await_ready() { return false; }
+        void await_suspend(task::handler_t h)
+        {
+            wait_queue.emplace(fd, h);
+            coro = h;
+            original_state = h.promise().last_await_state;
+            h.promise().last_await_state = await_state::no_schedule;
+        }
+        void await_resume() {
+            coro.promise().last_await_state = original_state;
+        }
+        int fd;
+        std::unordered_map<int, task::handler_t> &wait_queue;
+        task::handler_t coro;
+        await_state original_state;
+    };
+
+    auto wait_read(int fd) {
+        return fd_awaiter{fd, read_wait_queue};
+    }
+private:
+    task co_check_io() {
+        fd_set readfds;
+        while (1)
+        {
+            FD_ZERO(&readfds);
+            int maxSocket = 0;
+
+            for(auto [fd, handle]: read_wait_queue) {
+                FD_SET(fd, &readfds);
+                maxSocket = std::max(maxSocket, fd);
+            }
+
+            if (maxSocket > 0) {
+                timeval timeout{};
+                timeout.tv_sec = 1;
+                // Wait for activity on any of the sockets
+                int activity = select(maxSocket + 1, &readfds, NULL, NULL, NULL);
+
+                if (activity == -1)
+                {
+                    perror("Select error");
+                    exit(EXIT_FAILURE);
+                }
+
+                for(int fd = 0; fd <= maxSocket; fd++) {
+                    if (FD_ISSET(fd, &readfds)) {
+                        auto handle = read_wait_queue[fd];
+                        read_wait_queue.erase(fd);
+                        ready_queue.emplace_back(handle);
+                    }
+                }
+            }
+
+            co_await std::suspend_always{}; //yield to let other corotines to run
+        }
+    }
+
+    std::deque<task::handler_t> ready_queue;
+
+    std::unordered_map<int, task::handler_t> read_wait_queue;
 };
