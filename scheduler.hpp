@@ -44,7 +44,7 @@ public:
                 auto coro = ready_queue.front();
                 ready_queue.pop_front();
                 std::cout << std::format("in scheduler before resume {} id={}", coro.promise().name, coro.promise().id) << std::endl;
-                auto inner_coro = base_task::get_innermost_coro(coro);
+                auto inner_coro = get_innermost_coro(coro);
                 std::cout << std::format("inner : {} id={}", inner_coro.promise().name, inner_coro.promise().id) << std::endl;
                 inner_coro.resume();
                 std::cout << std::format("in scheduler after resume {} id={}", coro.promise().name, coro.promise().id) << std::endl;
@@ -62,7 +62,7 @@ public:
         bool await_ready() { return false; }
         void await_suspend(handler_t h)
         {
-            h = base_task::get_root_coro(h);
+            h = get_root_coro(h);
             wait_queue.emplace(fd, h);
             coro = h;
             original_state = h.promise().last_await_state;

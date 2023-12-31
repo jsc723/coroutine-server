@@ -13,7 +13,8 @@ enum class await_state {
     no_schedule
 };
 
-struct base_task
+template<typename T>
+struct task
 {
     struct promise_type
     {
@@ -21,9 +22,14 @@ struct base_task
             static uint64_t next_id{};
             return next_id++;
         }
-        auto get_return_object()
+        task<T> get_return_object()
         {
-            return base_task(std::coroutine_handle<promise_type>::from_promise(*this));
+            return task<T>(std::coroutine_handle<promise_type>::from_promise(*this));
+        }
+        void return_value(T value) { 
+            std::cout << "task::promise write result: " << value << std::endl;
+            //std::cout << "promise address = " << this << std::endl;
+            result = std::move(value); 
         }
         std::suspend_always initial_suspend() { return {}; }
         struct final_awaiter
@@ -52,7 +58,10 @@ struct base_task
         };
         final_awaiter final_suspend() noexcept { return {}; }
         void unhandled_exception() { throw; }
-        void return_value(int) {}
+        
+        T get_result() {
+            return coro.promise().result;
+        }
 
         auto yield_value(std::string coro_name) {
             std::cout << "yield_value: " << coro_name << std::endl;
@@ -67,31 +76,36 @@ struct base_task
         await_state last_await_state = await_state::schedule_next_frame;
         uint64_t id = get_next_id();
         std::string name;
+
+        T result;
     };
     
     using handler_t = std::coroutine_handle<promise_type>;
  
-    base_task(std::coroutine_handle<promise_type> h) : coro(h) {}
-    base_task(const base_task& t) = delete;
-    base_task &operator=(const base_task& t) = delete;
-    base_task(base_task&& t): coro{std::move(t.coro)} {
+    task(std::coroutine_handle<promise_type> h) : coro(h) {}
+    task(const task& t) = delete;
+    task &operator=(const task& t) = delete;
+    task(task&& t): coro{std::move(t.coro)} {
         t.coro = nullptr;
     }
-    base_task &operator=(base_task &&t) {
+    task &operator=(task &&t) {
         if (&t != this) {
             std::swap(coro, t.coro);
         }
         return *this;
     }
-    ~base_task() { 
+    ~task() { 
     }
  
     struct awaiter
     {
         bool await_ready() { return false; }
-        void await_resume() { 
-            std::cout << "destroy coro "  << std::endl;
+        T await_resume() { 
+            //std::cout << "auto hdl = to_typed_handle<T>(self);"<< std::endl;
+            T res = self.promise().result;
+            //std::cout << "destroy coro and get result " << res << std::endl;
             self.destroy();
+            return res;
         }
         auto await_suspend(auto h)
         {
@@ -122,49 +136,30 @@ struct base_task
         coro.destroy();
     }
 
-    static auto get_innermost_coro(auto coro) {
-        int advanced = 0;
-        while(coro.promise().next) {
-            handle_assign(coro, coro.promise().next);
-            advanced++;
-        }
-        //std::cout << std::format("advanced {} times\n", advanced);
-        return coro;
-    }
-
-    static auto get_root_coro(auto coro) {
-        int advanced = 0;
-        while(coro.promise().previous) {
-            handle_assign(coro, coro.promise().previous);
-            advanced++;
-        }
-        //std::cout << std::format("go back {} times\n", advanced);
-        return coro;
-    }
+    
  
 protected:
     std::coroutine_handle<promise_type> coro;
 };
 
-using base_task_promise = base_task::promise_type;
-
-
-template<typename T>
-struct task;
-
-template<typename T>
-using task_promise = task<T>::task_promise;
-
-template<typename T>
-std::coroutine_handle<base_task_promise> to_base_handle(std::coroutine_handle<task_promise<T>> h)
-{ 
-    return std::coroutine_handle<base_task_promise>::from_address(h.address()); 
+auto get_innermost_coro(auto coro) {
+    int advanced = 0;
+    while(coro.promise().next) {
+        handle_assign(coro, coro.promise().next);
+        advanced++;
+    }
+    //std::cout << std::format("advanced {} times\n", advanced);
+    return coro;
 }
 
-template<typename T>
-std::coroutine_handle<task_promise<T>> to_typed_handle(std::coroutine_handle<base_task_promise> h)
-{ 
-    return std::coroutine_handle<task_promise<T>>::from_address(h.address()); 
+auto get_root_coro(auto coro) {
+    int advanced = 0;
+    while(coro.promise().previous) {
+        handle_assign(coro, coro.promise().previous);
+        advanced++;
+    }
+    //std::cout << std::format("go back {} times\n", advanced);
+    return coro;
 }
 
 template<typename U, typename V>
@@ -173,45 +168,3 @@ void handle_assign(std::coroutine_handle<U> &to, std::coroutine_handle<V> &from)
     to = std::coroutine_handle<U>::from_address(from.address()); 
 }
 
-
-template<typename T>
-struct task : base_task {
-
-    struct task_promise : base_task_promise {
-        task<T> get_return_object()
-        {
-            return task<T>(std::coroutine_handle<task_promise>::from_promise(*this));
-        }
-        void return_value(T value) { 
-            std::cout << "task::promise write result: " << value << std::endl;
-            //std::cout << "promise address = " << this << std::endl;
-            result = std::move(value); 
-        }
-        T result;
-    };
-    using promise_type = task_promise;
-
-    task(std::coroutine_handle<task_promise> coro)
-        : base_task(to_base_handle<T>(coro)) {}
-    T get_result() {
-        return to_typed_handle<T>(coro).promise().result;
-    }    
-    std::coroutine_handle<promise_type> get_handle() {
-        return to_typed_handle<T>(coro);
-    }
-
-    struct awaiter : base_task::awaiter
-    {
-        T await_resume() { 
-            //std::cout << "auto hdl = to_typed_handle<T>(self);"<< std::endl;
-            T res = to_typed_handle<T>(self).promise().result;
-            //std::cout << "destroy coro and get result " << res << std::endl;
-            self.destroy();
-            return res;
-        }
-    };
-    awaiter operator co_await() { 
-        //std::cout << "coro address: " << coro.address() << std::endl;
-        return awaiter{coro}; 
-    }
-};
