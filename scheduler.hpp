@@ -12,17 +12,18 @@
 
 class scheduler {
 public:
+    using handler_t = std::coroutine_handle<typename result_task<int>::promise_type>;
     scheduler(bool enable_async_io = true) {
         if (enable_async_io) {
             schedule(co_check_io());
         }
     }
 
-    void schedule(task &&coro_task, await_state state = await_state::schedule_next_frame) {
+    void schedule(result_task<int> &&coro_task, await_state state = await_state::schedule_next_frame) {
         emplace_coro(coro_task.get_handle(), state);
     }
 
-    void emplace_coro(task::handler_t coro, await_state state) {
+    void emplace_coro(handler_t coro, await_state state) {
         switch(state) {
             case await_state::schedule_next_frame:
                 ready_queue.emplace_back(coro);
@@ -58,7 +59,7 @@ public:
     
     struct fd_awaiter {
         bool await_ready() { return false; }
-        void await_suspend(task::handler_t h)
+        void await_suspend(handler_t h)
         {
             h = task::get_root_coro(h);
             wait_queue.emplace(fd, h);
@@ -70,8 +71,8 @@ public:
             coro.promise().last_await_state = original_state;
         }
         int fd;
-        std::unordered_map<int, task::handler_t> &wait_queue;
-        task::handler_t coro;
+        std::unordered_map<int, handler_t> &wait_queue;
+        handler_t coro;
         await_state original_state;
     };
 
@@ -79,7 +80,7 @@ public:
         return fd_awaiter{fd, read_wait_queue};
     }
 private:
-    task co_check_io() {
+    result_task<int> co_check_io() {
         co_yield "co_check_io";
         fd_set readfds;
         while (1)
@@ -120,7 +121,7 @@ private:
         }
     }
 
-    std::deque<task::handler_t> ready_queue;
+    std::deque<handler_t> ready_queue;
 
-    std::unordered_map<int, task::handler_t> read_wait_queue;
+    std::unordered_map<int, handler_t> read_wait_queue;
 };

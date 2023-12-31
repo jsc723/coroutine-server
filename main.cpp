@@ -50,7 +50,7 @@ result_task<double> add_task(double a, double b) {
 }
 
 template<typename T>
-task print_any_result(result_task<T> &&t) {
+result_task<int> print_any_result(result_task<T> &&t) {
     co_yield std::format("print_any_result {}", t.get_handle().address());
     T result = co_await t;
     std::cout << "print_any_result: " << result << std::endl;

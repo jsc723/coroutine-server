@@ -132,20 +132,20 @@ struct task
         coro.destroy();
     }
 
-    static handler_t get_innermost_coro(handler_t coro) {
+    static auto get_innermost_coro(auto coro) {
         int advanced = 0;
         while(coro.promise().next) {
-            coro = coro.promise().next;
+            coro = coro.from_address(coro.promise().next.address());
             advanced++;
         }
         //std::cout << std::format("advanced {} times\n", advanced);
         return coro;
     }
 
-    static handler_t get_root_coro(handler_t coro) {
+    static auto get_root_coro(auto coro) {
         int advanced = 0;
         while(coro.promise().previous) {
-            coro = coro.promise().previous;
+            coro = coro.from_address(coro.promise().previous.address());
             advanced++;
         }
         //std::cout << std::format("go back {} times\n", advanced);
@@ -207,6 +207,9 @@ struct result_task : task {
         : task(to_base_handle<T>(coro)) {}
     T get_result() {
         return to_typed_handle<T>(coro).promise().result;
+    }    
+    std::coroutine_handle<promise_type> get_handle() {
+        return to_typed_handle<T>(coro);
     }
 
     struct awaiter : task::awaiter

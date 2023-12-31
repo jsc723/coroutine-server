@@ -59,7 +59,7 @@ public:
     
 
     
-    task co_listen(scheduler &sche)
+    result_task<int> co_listen(scheduler &sche)
     {
         while(1) {
             // If a new connection is available, accept it
@@ -88,7 +88,7 @@ public:
         
     }
 
-    task co_handle_client(scheduler &sche, int clientSockets_i)
+    result_task<int> co_handle_client(scheduler &sche, int clientSockets_i)
     {
         while(1) {
             int sd = clientSockets[clientSockets_i];

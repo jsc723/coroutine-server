@@ -5,20 +5,20 @@
 #define MAX_PACKAGE_SIZE (1 << 10) // 1 KB
 
 namespace co_syscall {
-    task accept(scheduler &sche, int __fd, sockaddr *__restrict__ __addr, socklen_t *__restrict__ __addr_len) {
+    result_task<int> accept(scheduler &sche, int __fd, sockaddr *__restrict__ __addr, socklen_t *__restrict__ __addr_len) {
         co_await sche.wait_read(__fd);
         int client_fd = ::accept(__fd, (struct sockaddr *)&__addr, __addr_len);
         std::cout << "system accept return fd = " << client_fd << std::endl;
         co_return client_fd;
     }
 
-    task read(scheduler &sche, int __fd, void *__buf, size_t __nbytes) {
+    result_task<int> read(scheduler &sche, int __fd, void *__buf, size_t __nbytes) {
         co_await sche.wait_read(__fd);
         co_return ::read(__fd, __buf, __nbytes);
     }
 
     //return eithor n or 0 (eof) or -1 (error)
-    task read_exact_n(scheduler &sche, int fd, void *buf, size_t n) {
+    result_task<int> read_exact_n(scheduler &sche, int fd, void *buf, size_t n) {
         size_t total = 0;
         while (total < n) {
             int bytes_read = co_await read(sche, fd, (char *)buf + total, n - total);
@@ -37,7 +37,7 @@ namespace co_syscall {
         co_return total;
     }
 
-    task read_package(scheduler &sche, int fd, void *payload) {
+    result_task<int> read_package(scheduler &sche, int fd, void *payload) {
         int32_t size;
         //std::cout << std::format("read package before bytes_read(&size)\n");
         int bytes_read = co_await read_exact_n(sche, fd, &size, sizeof(int32_t));
