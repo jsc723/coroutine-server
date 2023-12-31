@@ -41,11 +41,11 @@ public:
             if (!ready_queue.empty()) {
                 auto coro = ready_queue.front();
                 ready_queue.pop_front();
-                //std::cout << "in scheduler before resume " << coro.promise().id << std::endl;
+                std::cout << std::format("in scheduler before resume {} id={}", coro.promise().name, coro.promise().id) << std::endl;
                 auto inner_coro = task::get_innermost_coro(coro);
-                //std::cout << "inner = " << inner_coro.promise().id << std::endl;
+                std::cout << std::format("inner : {} id={}", inner_coro.promise().name, inner_coro.promise().id) << std::endl;
                 inner_coro.resume();
-                //std::cout << "in scheduler after resume "  << coro.promise().id << std::endl;
+                std::cout << std::format("in scheduler after resume {} id={}", coro.promise().name, coro.promise().id) << std::endl;
                 if (!coro.done()) {
                     emplace_coro(coro, coro.promise().last_await_state);
                 } else {

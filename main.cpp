@@ -29,18 +29,46 @@ task add_task(int x, int y) {
 }
 
 task print_result(task &&t) {
+    std::cout << "print_result start" << std::endl;
+    co_yield "print_result";
     int result = co_await t;
     std::cout << "print_result: " << result << std::endl;
     co_return 15;
 }
+
+result_task<std::string> string_task() {
+    std::cout << "string_task" << std::endl;
+    co_return "result";
+}
+
+result_task<double> add_task(double a, double b) {
+    co_yield "add_task";
+    std::cout << std::format("add task{} {} await", a, b) << std::endl;
+    co_await std::suspend_always{};
+    std::cout << std::format("add task{} {} continue", a, b) << std::endl;
+    co_return a+b;
+}
+
+template<typename T>
+task print_any_result(result_task<T> &&t) {
+    co_yield std::format("print_any_result {}", t.get_handle().address());
+    T result = co_await t;
+    std::cout << "print_any_result: " << result << std::endl;
+    co_return 0;
+}
  
 int main()
 {
-    scheduler sch;
-    //sch.init_async_io();
+    scheduler sch(false);
     //sch.schedule(test("a", 10));
     //sch.schedule(test("b", 5));
     //sch.schedule(test("c", 3));
-    sch.schedule(print_result(add_task(2,3)));
+    //sch.schedule(print_result(add_task(2,3)));
+    auto t1 = string_task();
+    sch.schedule(print_any_result(std::move(t1)));
+    auto t2 = add_task(1.2, 3.4);
+    sch.schedule(print_any_result(std::move(t2)));
+    auto t3 = add_task(3.0, 4.0);
+    sch.schedule(print_any_result(std::move(t3)));
     sch.run();
 }

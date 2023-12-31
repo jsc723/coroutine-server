@@ -59,7 +59,7 @@ namespace co_rpc {
     enum CALL_ID {
         ADD_NUMBER = 1
     };
-    task add_number(scheduler &sche, int fd, int32_t a, int32_t b, int &err) {
+    result_task<int32_t> add_number(scheduler &sche, int fd, int32_t a, int32_t b, int &err) {
         int32_t package[] = {CALL_ID::ADD_NUMBER, a, b};
         constexpr int32_t PACKAGE_SIZE = sizeof(package);
         if(::write(fd, &PACKAGE_SIZE, sizeof(PACKAGE_SIZE)) == -1) {
