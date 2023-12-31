@@ -12,14 +12,15 @@
 
 class scheduler {
 public:
-    using handler_t = std::coroutine_handle<typename result_task<int>::promise_type>;
+    using task_t = task<int>;
+    using handler_t = std::coroutine_handle<typename task_t::promise_type>;
     scheduler(bool enable_async_io = true) {
         if (enable_async_io) {
             schedule(co_check_io());
         }
     }
 
-    void schedule(result_task<int> &&coro_task, await_state state = await_state::schedule_next_frame) {
+    void schedule(task_t &&coro_task, await_state state = await_state::schedule_next_frame) {
         emplace_coro(coro_task.get_handle(), state);
     }
 
@@ -43,7 +44,7 @@ public:
                 auto coro = ready_queue.front();
                 ready_queue.pop_front();
                 std::cout << std::format("in scheduler before resume {} id={}", coro.promise().name, coro.promise().id) << std::endl;
-                auto inner_coro = task::get_innermost_coro(coro);
+                auto inner_coro = base_task::get_innermost_coro(coro);
                 std::cout << std::format("inner : {} id={}", inner_coro.promise().name, inner_coro.promise().id) << std::endl;
                 inner_coro.resume();
                 std::cout << std::format("in scheduler after resume {} id={}", coro.promise().name, coro.promise().id) << std::endl;
@@ -61,7 +62,7 @@ public:
         bool await_ready() { return false; }
         void await_suspend(handler_t h)
         {
-            h = task::get_root_coro(h);
+            h = base_task::get_root_coro(h);
             wait_queue.emplace(fd, h);
             coro = h;
             original_state = h.promise().last_await_state;
@@ -80,7 +81,7 @@ public:
         return fd_awaiter{fd, read_wait_queue};
     }
 private:
-    result_task<int> co_check_io() {
+    task_t co_check_io() {
         co_yield "co_check_io";
         fd_set readfds;
         while (1)

@@ -57,9 +57,7 @@ public:
         }
     }
     
-
-    
-    result_task<int> co_listen(scheduler &sche)
+    scheduler::task_t co_listen(scheduler &sche)
     {
         co_yield std::format("listen");
         while(1) {
@@ -88,7 +86,7 @@ public:
         
     }
 
-    result_task<int> co_handle_client(scheduler &sche, int clientSockets_i)
+    scheduler::task_t co_handle_client(scheduler &sche, int clientSockets_i)
     {
         co_yield std::format("co_handle_client {}", clientSockets_i);
         char package[MAX_PACKAGE_SIZE+1];

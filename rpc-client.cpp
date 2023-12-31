@@ -44,7 +44,7 @@ public:
         }
     }
 
-    result_task<int> run(scheduler &sche) {
+    task<int> run(scheduler &sche) {
         char package[MAX_PACKAGE_SIZE+1];
         char userInput[BUFFER_SIZE];
         while (1) {
