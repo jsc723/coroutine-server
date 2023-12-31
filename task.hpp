@@ -52,7 +52,10 @@ struct task
         };
         final_awaiter final_suspend() noexcept { return {}; }
         void unhandled_exception() { throw; }
-        void return_value(task_result_t value) { base_result = std::move(value); }
+        void return_value(task_result_t value) { 
+            std::cout << "task::return_value: " << value << std::endl;
+            base_result = std::move(value);
+         }
 
         auto yield_value(std::string coro_name) {
             std::cout << "yield_value: " << coro_name << std::endl;
@@ -92,14 +95,17 @@ struct task
         bool await_ready() { return false; }
         task_result_t await_resume() { 
             task_result_t res = std::move(self.promise().base_result);
-            //std::cout << "destroy coro and get result " << res  << std::endl;
+            std::cout << "destroy coro and get result " << res  << std::endl;
             self.destroy();
             return res;
         }
         auto await_suspend(auto h)
         {
-            self.promise().previous.from_address(h.address());
-            h.promise().next.from_address(self.address());
+            std::cout << "h.address = " << h.address() << std::endl;
+            self.promise().previous = std::coroutine_handle<promise_type>::from_address(h.address());
+            h.promise().next = std::coroutine_handle<promise_type>::from_address(self.address());
+            std::cout << "self.promise().previous.address = " << self.promise().previous.address()<< std::endl;
+            std::cout << "h.promise().next.address = " << h.promise().next.address()<< std::endl;
             return self;
         }
         std::coroutine_handle<promise_type> self;
@@ -189,7 +195,7 @@ struct result_task : task {
             return result_task<T>(std::coroutine_handle<task_promise>::from_promise(*this));
         }
         void return_value(T value) { 
-            //std::cout << "result_task::promise write result: " << value << std::endl;
+            std::cout << "result_task::promise write result: " << value << std::endl;
             //std::cout << "promise address = " << this << std::endl;
             result = std::move(value); 
         }

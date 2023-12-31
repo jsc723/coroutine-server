@@ -61,6 +61,7 @@ public:
     
     task co_listen(scheduler &sche)
     {
+        co_yield std::format("listen");
         while(1) {
             // If a new connection is available, accept it
             int newSocket = co_await co_syscall::accept(sche, serverSocket, (struct sockaddr *)&clientAddr, &addrLen);
@@ -89,10 +90,12 @@ public:
 
     task co_handle_client(scheduler &sche, int clientSockets_i)
     {
+        co_yield std::format("co_handle_client {}", clientSockets_i);
         char package[MAX_PACKAGE_SIZE+1];
         while(1) {
             int sd = clientSockets[clientSockets_i];
             // Read the incoming message
+            std::cout << "co_handle_client awaiting" << std::endl;
             int32_t package_size = co_await co_syscall::read_package(sche, sd, buffer);
             if (package_size <= 0)
             {

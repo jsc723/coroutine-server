@@ -80,6 +80,7 @@ public:
     }
 private:
     task co_check_io() {
+        co_yield "co_check_io";
         fd_set readfds;
         while (1)
         {
@@ -87,7 +88,7 @@ private:
             int maxSocket = 0;
 
             for(auto [fd, handle]: read_wait_queue) {
-                //std::cout << std::format("check {} ", fd) << std::endl;
+                std::cout << std::format("check {} ", fd) << std::endl;
                 FD_SET(fd, &readfds);
                 maxSocket = std::max(maxSocket, fd);
             }
@@ -95,7 +96,7 @@ private:
             if (maxSocket > 0) {
                 timeval timeout{};
                 timeout.tv_sec = 1;
-                //std::cout << std::format("before select") << std::endl;
+                std::cout << std::format("before select") << std::endl;
                 // Wait for activity on any of the sockets
                 int activity = select(maxSocket + 1, &readfds, NULL, NULL, NULL);
 
@@ -107,7 +108,7 @@ private:
 
                 for(int fd = 0; fd <= maxSocket; fd++) {
                     if (FD_ISSET(fd, &readfds)) {
-                        //std::cout << std::format("ready: {} ", fd) << std::endl;
+                        std::cout << std::format("ready: {} ", fd) << std::endl;
                         auto handle = read_wait_queue[fd];
                         read_wait_queue.erase(fd);
                         ready_queue.emplace_back(handle);
