@@ -27,7 +27,7 @@ struct task
             return task<T>(std::coroutine_handle<promise_type>::from_promise(*this));
         }
         void return_value(T value) { 
-            std::cout << "task::promise write result: " << value << std::endl;
+            //std::cout << "task::promise write result: " << value << std::endl;
             //std::cout << "promise address = " << this << std::endl;
             result = std::move(value); 
         }
@@ -48,7 +48,7 @@ struct task
                 // Otherwise, return noop_coroutine(), whose resumption does nothing.
 
                 if (auto previous = h.promise().previous; previous){
-                    previous.promise().next = nullptr;
+                    //previous.promise().next = nullptr;
                     //std::cout << "final suspend return previous\n";
                     return previous;
                 }
@@ -102,6 +102,7 @@ struct task
         bool await_ready() { return false; }
         T await_resume() { 
             //std::cout << "auto hdl = to_typed_handle<T>(self);"<< std::endl;
+            self.promise().previous.promise().next = nullptr;
             T res = self.promise().result;
             //std::cout << "destroy coro and get result " << res << std::endl;
             self.destroy();
@@ -109,11 +110,11 @@ struct task
         }
         auto await_suspend(auto h)
         {
-            std::cout << "h.address = " << h.address() << std::endl;
+            //std::cout << "h.address = " << h.address() << std::endl;
             handle_assign(self.promise().previous, h);
             handle_assign(h.promise().next, self);
-            std::cout << "self.promise().previous.address = " << self.promise().previous.address()<< std::endl;
-            std::cout << "h.promise().next.address = " << h.promise().next.address()<< std::endl;
+            //std::cout << "self.promise().previous.address = " << self.promise().previous.address()<< std::endl;
+            //std::cout << "h.promise().next.address = " << h.promise().next.address()<< std::endl;
             return self;
         }
         std::coroutine_handle<promise_type> self;

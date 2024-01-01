@@ -43,11 +43,11 @@ public:
             if (!ready_queue.empty()) {
                 auto coro = ready_queue.front();
                 ready_queue.pop_front();
-                std::cout << std::format("in scheduler before resume {} id={}", coro.promise().name, coro.promise().id) << std::endl;
+                //std::cout << std::format("in scheduler before resume {} id={}", coro.promise().name, coro.promise().id) << std::endl;
                 auto inner_coro = get_innermost_coro(coro);
-                std::cout << std::format("inner : {} id={}", inner_coro.promise().name, inner_coro.promise().id) << std::endl;
+                //std::cout << std::format("inner : {} id={}", inner_coro.promise().name, inner_coro.promise().id) << std::endl;
                 inner_coro.resume();
-                std::cout << std::format("in scheduler after resume {} id={}", coro.promise().name, coro.promise().id) << std::endl;
+                //std::cout << std::format("in scheduler after resume {} id={}", coro.promise().name, coro.promise().id) << std::endl;
                 if (!coro.done()) {
                     emplace_coro(coro, coro.promise().last_await_state);
                 } else {
@@ -96,8 +96,8 @@ private:
             }
 
             if (maxSocket > 0) {
-                timeval timeout{};
-                timeout.tv_sec = 1;
+                // timeval timeout{};
+                // timeout.tv_sec = 1;
                 std::cout << std::format("before select") << std::endl;
                 // Wait for activity on any of the sockets
                 int activity = select(maxSocket + 1, &readfds, NULL, NULL, NULL);
