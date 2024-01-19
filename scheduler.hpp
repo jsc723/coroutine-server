@@ -13,7 +13,7 @@
 class scheduler {
 public:
     using task_t = task<int>;
-    using handler_t = std::coroutine_handle<typename task_t::promise_type>;
+    using handle_t = std::coroutine_handle<typename task_t::promise_type>;
     scheduler(bool enable_async_io = true) {
         if (enable_async_io) {
             schedule(co_check_io());
@@ -24,7 +24,7 @@ public:
         emplace_coro(coro_task.get_handle(), state);
     }
 
-    void emplace_coro(handler_t coro, await_state state) {
+    void emplace_coro(handle_t coro, await_state state) {
         switch(state) {
             case await_state::schedule_next_frame:
                 ready_queue.emplace_back(coro);
@@ -60,7 +60,7 @@ public:
     
     struct fd_awaiter {
         bool await_ready() { return false; }
-        void await_suspend(handler_t h)
+        void await_suspend(handle_t h)
         {
             h = get_root_coro(h);
             wait_queue.emplace(fd, h);
@@ -72,8 +72,8 @@ public:
             coro.promise().last_await_state = original_state;
         }
         int fd;
-        std::unordered_map<int, handler_t> &wait_queue;
-        handler_t coro;
+        std::unordered_map<int, handle_t> &wait_queue;
+        handle_t coro;
         await_state original_state;
     };
 
@@ -122,7 +122,7 @@ private:
         }
     }
 
-    std::deque<handler_t> ready_queue;
+    std::deque<handle_t> ready_queue;
 
-    std::unordered_map<int, handler_t> read_wait_queue;
+    std::unordered_map<int, handle_t> read_wait_queue;
 };
